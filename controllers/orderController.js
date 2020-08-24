@@ -1,31 +1,45 @@
 const orderModel = require('../models/OrderModel');
 const ingredientModel = require('../models/IngredientModel');
+const io = require('../socket');
 
-let queueTime = 0;
-let orders = [];
 let isbusy = false;
+let orders = [];
+let queueTime = 0;
+let orderTime;
 
-const handleQueue = async () => {
-  // Retrieves all of the orders from db that are waiting in queue
+const updateQueue = async () => {
+  // Retrieves all orders that are either in queue or processing
+  // and updates the state with them
   orders = [
-    ...(await orderModel.find({ status: 'queue' }).sort({ ordertime: 'asc' })),
+    ...(await orderModel.find({
+      $or: [{ status: 'queue' }, { status: 'processing' }],
+    })),
   ];
 
-  const nextOrder = orders[0];
+  // Calculates how much time has passed since the chef has started working
+  // on the order and substracts it from total queue time
+  const timeDifference = new Date().getSeconds() - orderTime;
+  queueTime = orders.reduce((acc, curr) => acc + curr.time, 0) - timeDifference;
 
-  // If there arent any orders waiting it stops
-  if (!nextOrder) return;
+  // Emits a message to the client with updated state of queue time/place
+  const socket = io.getIO();
+  socket.emit('orders', {
+    orders: orders.length,
+    queueTime,
+  });
+};
 
+const handleQueue = async () => {
+  if (isbusy) return;
   // Updates the current order status' to processing and sets state to busy
-  await orderModel.findOneAndUpdate(
-    { _id: nextOrder._id },
-    { status: 'processing' }
-  );
+  const nextOrder = await orderModel
+    .findOneAndUpdate({ status: 'queue' }, { status: 'processing' })
+    .sort({ ordertime: 'asc' });
 
+  // If there arent any orders in queue it stops
+  if (!nextOrder) return;
   isbusy = true;
-
-  // Calculates remaning time for all of the orders in queue
-  queueTime = orders.reduce((acc, curr) => acc + curr);
+  orderTime = new Date().getSeconds();
 
   // After the order is completed depending on the time,
   // updates its status to completed and sets the state to not busy
@@ -34,13 +48,11 @@ const handleQueue = async () => {
       { _id: nextOrder._id },
       { status: 'completed' }
     );
+    updateQueue();
     isbusy = false;
+    handleQueue();
   }, nextOrder.time * 1000);
 };
-
-setInterval(() => {
-  if (!isbusy) handleQueue();
-}, 1000);
 
 exports.queueOrder = async (req, res) => {
   try {
@@ -55,11 +67,17 @@ exports.queueOrder = async (req, res) => {
 
     let totalPrice = 0;
     let totalTime = 0;
-    const ordersInQueue = await orderModel.find({ status: 'queue' });
+    const ordersInQueue = await orderModel.find({
+      $or: [{ status: 'queue' }, { status: 'processing' }],
+    });
+
+    // Calculates remaning time for all of the orders in queue
+    const queueTime = ordersInQueue.reduce((acc, curr) => acc + curr.time, 0);
 
     if (ordersInQueue.length >= 15)
       return res.send('Sorry, the restaurant is busy');
 
+    // Increases price and time according to size
     switch (size) {
       case 'small':
         totalPrice += 200;
@@ -71,7 +89,7 @@ exports.queueOrder = async (req, res) => {
         break;
       case 'large':
         totalPrice += 600;
-        totalTime + 3;
+        totalTime += 3;
         break;
     }
 
@@ -95,10 +113,12 @@ exports.queueOrder = async (req, res) => {
 
     await order.save();
 
+    handleQueue();
+
     res.send({
       message: 'Order successfully placed in a queue',
       queueTime: queueTime + totalTime,
-      ordersLeft: ordersLeft.length + 1,
+      ordersLeft: ordersInQueue.length + 1,
     });
   } catch (err) {
     console.log(err);
@@ -110,6 +130,8 @@ exports.cancelOrder = async (req, res) => {
     const { id } = req.body;
 
     await orderModel.findByIdAndDelete(id);
+
+    updateQueue();
 
     res.send({ message: 'Order successfully cancled' });
   } catch (err) {

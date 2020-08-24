@@ -2,12 +2,10 @@ const orderModel = require('../models/OrderModel');
 const ingredientModel = require('../models/IngredientModel');
 
 let queueTime = 0;
-const orders = [];
+let orders = [];
 let isbusy = false;
 
 const handleQueue = async () => {
-  if (isbusy) return;
-
   // Retrieves all of the orders from db that are waiting in queue
   orders = [
     ...(await orderModel.find({ status: 'queue' }).sort({ ordertime: 'asc' })),
@@ -39,6 +37,10 @@ const handleQueue = async () => {
     isbusy = false;
   }, nextOrder.time * 1000);
 };
+
+setInterval(() => {
+  if (!isbusy) handleQueue();
+}, 1000);
 
 exports.queueOrder = async (req, res) => {
   try {
@@ -103,3 +105,24 @@ exports.queueOrder = async (req, res) => {
   }
 };
 
+exports.cancelOrder = async (req, res) => {
+  try {
+    const { id } = req.body;
+
+    await orderModel.findByIdAndDelete(id);
+
+    res.send({ message: 'Order successfully cancled' });
+  } catch (err) {
+    console.log(err);
+  }
+};
+
+exports.getAllOrders = async (req, res) => {
+  try {
+    const orders = await orderModel.find({ status: 'completed' });
+
+    res.send({ data: orders });
+  } catch (err) {
+    console.log(err);
+  }
+};

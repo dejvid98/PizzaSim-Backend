@@ -1,5 +1,8 @@
-const app = require('./app');
+// Libraries imports
 const mongoose = require('mongoose');
+
+// Relative imports
+const app = require('./app');
 const DB = require('./dbConfig');
 
 try {
@@ -15,6 +18,6 @@ try {
   console.log(e);
 }
 
-const port = process.env.PORT || 3005;
+const port = process.env.PORT || 3006;
 
 app.listen(port, () => console.log(`Server is running on ${port}`));

@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const orderModel = mongoose.Schema({
-  pizzaSize: {
+  size: {
     type: String,
-    enum: ['Small', 'Medium', 'Large'],
+    enum: ['small', 'medium', 'large'],
     required: true,
   },
-  ingridient: {
+  ingredient: {
     type: String,
     enum: [
       'cheese',
@@ -28,12 +28,33 @@ const orderModel = mongoose.Schema({
     type: Number,
     required: true,
   },
-  orderTime: {
+  ordertime: {
     type: Date,
     default: Date.now,
   },
+  status: {
+    type: String,
+    enum: ['queue', 'processing', 'completed'],
+    default: 'queue',
+  },
+  firstname: {
+    type: String,
+    required: true,
+  },
+  lastname: {
+    type: String,
+    required: true,
+  },
+  address: {
+    type: String,
+    required: true,
+  },
+  phonenumber: {
+    type: Number,
+    required: true,
+  },
 });
 
-const ingridient = mongoose.model('Ingridient', orderModel);
+const ingridient = mongoose.model('Order', orderModel);
 
 module.exports = ingridient;

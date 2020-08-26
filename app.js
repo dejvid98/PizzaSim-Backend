@@ -12,7 +12,6 @@ const app = express();
 app.use(cors());
 app.use(express.json({ extended: true }));
 
-app.get('/', (req, res) => res.send('Hello World'));
 app.use('/admin', admin);
 app.use('/order', order);
 

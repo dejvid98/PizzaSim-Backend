@@ -53,6 +53,10 @@ const orderModel = mongoose.Schema({
     type: Number,
     required: true,
   },
+  quantity: {
+    type: Number,
+    default: 1,
+  },
 });
 
 const ingridient = mongoose.model('Order', orderModel);

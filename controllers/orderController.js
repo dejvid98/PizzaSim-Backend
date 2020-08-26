@@ -7,7 +7,7 @@ let orders = [];
 let queueTime = 0;
 let orderTime;
 
-const updateQueue = async () => {
+const updateQueue = async (orderDate) => {
   // Retrieves all orders that are either in queue or processing
   // and updates the state with them
   orders = [
@@ -23,10 +23,17 @@ const updateQueue = async () => {
 
   // Emits a message to the client with updated state of queue time/place
   const socket = io.getIO();
-  socket.emit('orders', {
-    orders: orders.length,
-    queueTime,
-  });
+  if (orderDate)
+    socket.emit('orders', {
+      orders: orders.length,
+      queueTime,
+      orderDate,
+    });
+  else
+    socket.emit('orders', {
+      orders: orders.length,
+      queueTime,
+    });
 };
 
 const handleQueue = async () => {
@@ -63,10 +70,10 @@ exports.queueOrder = async (req, res) => {
       lastname,
       address,
       phonenumber,
+      time,
+      price,
     } = req.body;
 
-    let totalPrice = 0;
-    let totalTime = 0;
     const ordersInQueue = await orderModel.find({
       $or: [{ status: 'queue' }, { status: 'processing' }],
     });
@@ -77,28 +84,6 @@ exports.queueOrder = async (req, res) => {
     if (ordersInQueue.length >= 15)
       return res.send('Sorry, the restaurant is busy');
 
-    // Increases price and time according to size
-    switch (size) {
-      case 'small':
-        totalPrice += 200;
-        totalTime += 1;
-        break;
-      case 'medium':
-        totalPrice += 400;
-        totalTime += 2;
-        break;
-      case 'large':
-        totalPrice += 600;
-        totalTime += 3;
-        break;
-    }
-
-    const ingredientDetails = await ingredientModel.findOne({
-      name: ingredient,
-    });
-
-    totalPrice += ingredientDetails.price;
-    totalTime += ingredientDetails.time;
 
     const order = new orderModel({
       size,
@@ -107,18 +92,18 @@ exports.queueOrder = async (req, res) => {
       lastname,
       address,
       phonenumber,
-      time: totalTime,
-      price: totalPrice,
+      time,
+      price,
     });
 
-    await order.save();
-
+    const resp = await order.save();
     handleQueue();
 
     res.send({
       message: 'Order successfully placed in a queue',
-      queueTime: queueTime + totalTime,
+      queueTime: queueTime + time,
       ordersLeft: ordersInQueue.length + 1,
+      id: resp._id,
     });
   } catch (err) {
     console.log(err);
@@ -129,9 +114,9 @@ exports.cancelOrder = async (req, res) => {
   try {
     const { id } = req.body;
 
-    await orderModel.findByIdAndDelete(id);
+    const resp = await orderModel.findByIdAndDelete(id);
 
-    updateQueue();
+    updateQueue(resp.ordertime);
 
     res.send({ message: 'Order successfully cancled' });
   } catch (err) {

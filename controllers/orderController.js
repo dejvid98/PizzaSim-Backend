@@ -84,7 +84,6 @@ exports.queueOrder = async (req, res) => {
     if (ordersInQueue.length >= 15)
       return res.send('Sorry, the restaurant is busy');
 
-
     const order = new orderModel({
       size,
       ingredient,
@@ -126,8 +125,11 @@ exports.cancelOrder = async (req, res) => {
 
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await orderModel.find({ status: 'completed' });
-
+    const orders = await orderModel
+      .find({
+        $or: [{ status: 'completed' }, { status: 'processing' }],
+      })
+      .sort({ ordertime: 'desc' });
     res.send({ data: orders });
   } catch (err) {
     console.log(err);

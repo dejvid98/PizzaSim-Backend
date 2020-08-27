@@ -7,7 +7,7 @@ const {
 } = require('../controllers/orderController');
 
 router.route('/').post(queueOrder);
-router.route('/').delete(cancelOrder);
+router.route('/delete').post(cancelOrder);
 router.route('/').get(getAllOrders);
 
 module.exports = router;

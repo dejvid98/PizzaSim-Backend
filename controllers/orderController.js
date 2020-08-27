@@ -72,6 +72,7 @@ exports.queueOrder = async (req, res) => {
       phonenumber,
       time,
       price,
+      quantity,
     } = req.body;
 
     const ordersInQueue = await orderModel.find({
@@ -93,6 +94,7 @@ exports.queueOrder = async (req, res) => {
       phonenumber,
       time,
       price,
+      quantity,
     });
 
     const resp = await order.save();
